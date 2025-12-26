@@ -7,13 +7,15 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @Slf4j
 public class MiniDBService {
 
     private static final String DB_FILE = "database.db";
-    private static final Map<String, Long> index = new HashMap<>();
+    private static final Map<String, Long> index = new ConcurrentHashMap<>();
+    private final Object writeLock = new Object();
 
     // Load existing data and build index
     static {
@@ -38,14 +40,16 @@ public class MiniDBService {
         }
     }
 
-    public  void dbSet(String key, String value) throws IOException {
-        try (RandomAccessFile raf = new RandomAccessFile(DB_FILE, "rw")) {
-            log.info("Saving key {} to database", key);
-            raf.seek(raf.length());
-            long offset = raf.getFilePointer();
-            log.info("Key offset :{}",offset);
-            raf.write((key + "," + value + "\n").getBytes(StandardCharsets.UTF_8));
-            index.put(key, offset);
+    public void dbSet(String key, String value) throws IOException {
+        synchronized (writeLock) {
+            try (RandomAccessFile raf = new RandomAccessFile(DB_FILE, "rw")) {
+                log.info("Saving key {} to database", key);
+                raf.seek(raf.length());
+                long offset = raf.getFilePointer();
+                log.info("Key offset :{}", offset);
+                raf.write((key + "," + value + "\n").getBytes(StandardCharsets.UTF_8));
+                index.put(key, offset);
+            }
         }
     }
 
