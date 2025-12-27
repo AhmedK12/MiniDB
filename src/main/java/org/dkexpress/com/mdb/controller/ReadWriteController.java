@@ -11,8 +11,8 @@ import java.io.IOException;
 @RequestMapping("/api/v1/db")
 public class ReadWriteController {
     private final MiniDBService miniDBService;
-    public ReadWriteController(MiniDBService miniDBService, MiniDBService miniDBService1) {
-        this.miniDBService = miniDBService1;
+    public ReadWriteController(MiniDBService miniDBService) {
+        this.miniDBService = miniDBService;
     }
 
     @PostMapping("/write")
