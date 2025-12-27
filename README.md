@@ -71,3 +71,63 @@ These are intentionally deferred to later stages.
 - Concurrent write tests validate that multiple writers cannot corrupt the file
   or index.
 - Read-after-write correctness is preserved under concurrent access.
+
+## Stage 2 — Binary record format (Crash-safe records)
+
+### Problem
+In Stage 1, records were written using a text-based format.  
+If the process or machine crashed while writing a record, the database could end up with:
+
+- Partially written records at the end of the file
+- Ambiguous record boundaries
+- Inability to distinguish valid data from corruption
+- Unsafe index reconstruction on restart
+
+Text delimiters (such as commas or newlines) are not sufficient for reliable recovery.
+
+---
+
+### Solution
+Records are now stored in a **binary, self-describing format**:
+
+| keyLength (4 bytes) | valueLength (4 bytes) | key bytes | value bytes |
+
+Each record explicitly declares its size, allowing the storage engine to:
+- Know exactly where a record starts and ends
+- Safely skip incomplete records
+- Reliably rebuild the in-memory index on startup
+
+---
+
+### Design Decisions
+- Record lengths are written **before** the data to allow safe forward scanning.
+- Offsets always point to the **start of a record header**.
+- Startup recovery scans records sequentially and stops cleanly on `EOFException`,
+  ignoring any partially written trailing record.
+- The binary format supports arbitrary (non-text) keys and values.
+
+---
+
+### Invariant Introduced
+> **Every record has an unambiguous boundary, and a crash can never cause a
+> partially written record to be interpreted as valid data.**
+
+This invariant enables safe recovery and is a prerequisite for segmentation
+and compaction.
+
+---
+
+### What This Stage Does NOT Solve
+- Durability guarantees (`fsync`)
+- Checksums or corruption detection beyond record boundaries
+- Segment rotation or compaction
+- Write-ahead logging (WAL)
+
+These are intentionally deferred to later stages.
+
+---
+
+### Tests
+- Recovery tests verify that incomplete records at the end of the file are
+  ignored after restart.
+- Existing read/write correctness tests continue to pass with the binary format.
