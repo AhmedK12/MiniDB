@@ -131,3 +131,82 @@ These are intentionally deferred to later stages.
 - Recovery tests verify that incomplete records at the end of the file are
   ignored after restart.
 - Existing read/write correctness tests continue to pass with the binary format.
+
+## Stage 3 — Segmented, Immutable Storage
+
+### Problem
+In Stage 2, the database used a single append-only file. While crash-safe, this design has
+several limitations:
+
+- The file grows forever
+- Old versions of keys cannot be isolated
+- Space cannot be reclaimed
+- Deletion and compaction are impossible to implement correctly
+
+---
+
+### Solution
+The database is now split into **multiple segment files**.
+segment-00001.log
+segment-00002.log
+segment-00003.log
+
+Key rules introduced:
+
+- Only **one active segment** is writable at any time
+- When the active segment exceeds a configured size, it is **rotated**
+- Older segments become **immutable**
+- Writes always append to the active segment
+- Reads may occur from any segment
+
+---
+
+### Record Location
+The in-memory index now maps keys to a precise on-disk location:
+
+This enables correct reads across segments and deterministic recovery.
+
+---
+
+### Startup Recovery
+On startup:
+
+1. Segment files are discovered from disk
+2. Segments are ordered by segment ID
+3. Each segment is scanned sequentially
+4. The in-memory index is rebuilt
+5. Newer segments override older entries (last-write-wins)
+
+Partial records at the end of the active segment are safely ignored.
+
+---
+
+### Internal Refactoring
+As part of this stage, internal responsibilities were refactored to
+separate concerns and enforce clear invariants:
+
+- Segment lifecycle management is isolated in a dedicated component
+- Read and write logic are separated from orchestration logic
+- Startup recovery is handled explicitly during boot
+- The main storage service acts only as a coordinator
+
+This refactoring does not change behavior but makes the system
+extensible for future stages such as compaction and deletion.
+
+---
+
+### Design Invariant Introduced
+> **Only one segment is writable at any time; all other segments are immutable.**
+
+This invariant is foundational for future compaction and deletion.
+
+---
+
+### What This Stage Does NOT Do
+- Deletion / tombstones
+- Compaction
+- Disk space reclamation
+- Checksums
+- fsync / durability guarantees
+
+These features are intentionally deferred.

@@ -1,7 +1,7 @@
 package org.dkexpress.com.mdb.controller;
 
 import lombok.extern.slf4j.Slf4j;
-import org.dkexpress.com.mdb.service.MiniDBService;
+import org.dkexpress.com.mdb.service.MiniDB;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -10,19 +10,19 @@ import java.io.IOException;
 @RestController()
 @RequestMapping("/api/v1/db")
 public class ReadWriteController {
-    private final MiniDBService miniDBService;
-    public ReadWriteController(MiniDBService miniDBService) {
-        this.miniDBService = miniDBService;
+    private final MiniDB miniDB;
+    public ReadWriteController(MiniDB miniDB) {
+        this.miniDB = miniDB;
     }
 
     @PostMapping("/write")
     public void writeValue(@RequestParam String key, @RequestParam String value) throws IOException {
-        miniDBService.dbSet(key, value);
+        miniDB.dbSet(key, value);
     }
 
     @GetMapping("/read")
     public String readValue(@RequestParam String key) throws IOException {
-        return miniDBService.dbGet(key);
+        return miniDB.dbGet(key);
     }
 
 }
