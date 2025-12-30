@@ -1,6 +1,6 @@
 package org.dkexpress.com.mdb;
 
-import org.dkexpress.com.mdb.service.MiniDBService;
+import org.dkexpress.com.mdb.service.*;
 import org.junit.jupiter.api.*;
 
 import java.io.IOException;
@@ -8,14 +8,18 @@ import java.io.RandomAccessFile;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class KeyValueStoreTest {
+class ReadWriteTests {
 
-    MiniDBService store;
+    MiniDB store;
 
     @BeforeEach
-    void setup() {
+    void setup() throws IOException {
 //        MdbApplicationTests.deleteDbFile();
-        store = new MiniDBService();
+        SegmentManagerService segmentManagerService = new SegmentManagerService(100, "segments");
+        StartupRecovery startupRecovery = new StartupRecovery();
+        LogWriter logWriter = new LogWriter();
+        LogReader logReader = new LogReader();
+        MiniDB store = new MiniDB(segmentManagerService,logWriter,logReader,startupRecovery);
     }
 
     @Test
@@ -36,7 +40,11 @@ class KeyValueStoreTest {
             raf.writeInt(10); // incomplete header
         }
 
-        store = new MiniDBService(); // restart
+        SegmentManagerService segmentManagerService = new SegmentManagerService(100, "segments");
+        StartupRecovery startupRecovery = new StartupRecovery();
+        LogWriter logWriter = new LogWriter();
+        LogReader logReader = new LogReader();
+        MiniDB store = new MiniDB(segmentManagerService,logWriter,logReader,startupRecovery);
         assertEquals("1", store.dbGet("a"));
     }
 }
